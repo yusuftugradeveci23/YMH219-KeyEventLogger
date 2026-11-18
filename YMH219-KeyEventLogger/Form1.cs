@@ -16,14 +16,15 @@ namespace YMH219_KeyEventLogger
         private Label _lblStats = null!;
         private TextBox _txtTestArea = null!;
 
-        // Kontrol Butonları
-        private Button _btnToggleRecord = null!;
+        // Kontrol Butonları (Föye uygun ayrı Başlat ve Durdur butonları)
+        private Button _btnStart = null!;
+        private Button _btnStop = null!;
         private Button _btnClear = null!;
         private Button _btnExportTxt = null!;
         private Button _btnExportCsv = null!;
 
-        // Kayıt Tablosu
-        private DataGridView _dgvLogs = null!;
+        // Kayıt Listesi (Föye uygun ListBox bileşeni)
+        private ListBox _lstLogs = null!;
 
         public Form1()
         {
@@ -31,6 +32,7 @@ namespace YMH219_KeyEventLogger
             _logManager = new KeyLogManager();
             SetupCustomUI();
             BindKeyboardEvents();
+            UpdateRecordingStateUI();
         }
 
         private void SetupCustomUI()
@@ -38,7 +40,7 @@ namespace YMH219_KeyEventLogger
             // Form Genel Ayarları
             this.Text = "Key Event Logger - YMH 219 (Uygulama İçi Klavye Olay İzleyici)";
             this.Size = new Size(980, 640);
-            this.MinimumSize = new Size(860, 540);
+            this.MinimumSize = new Size(880, 540);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.BackColor = Color.FromArgb(245, 247, 250);
             this.Font = new Font("Segoe UI", 9.5F, FontStyle.Regular);
@@ -95,78 +97,56 @@ namespace YMH219_KeyEventLogger
                 PlaceholderText = "Buraya tıklayıp klavyeden tuşlara basarak KeyDown, KeyPress ve KeyUp olaylarını canlı test edebilirsiniz..."
             };
 
-            // Kontrol Butonları
-            _btnToggleRecord = CreateActionButton("Kaydı Duraklat", new Point(16, 102), Color.FromArgb(234, 88, 12));
-            _btnToggleRecord.Click += BtnToggleRecord_Click;
+            // Kontrol Butonları (Ayrı Başlat ve Durdur Butonları)
+            _btnStart = CreateActionButton("Başlat", new Point(16, 102), new Size(125, 36), Color.FromArgb(22, 163, 74));
+            _btnStart.Click += BtnStart_Click;
 
-            _btnClear = CreateActionButton("Geçmişi Temizle", new Point(176, 102), Color.FromArgb(100, 116, 139));
+            _btnStop = CreateActionButton("Durdur", new Point(151, 102), new Size(125, 36), Color.FromArgb(220, 38, 38));
+            _btnStop.Click += BtnStop_Click;
+
+            _btnClear = CreateActionButton("Temizle", new Point(286, 102), new Size(135, 36), Color.FromArgb(100, 116, 139));
             _btnClear.Click += BtnClear_Click;
 
-            _btnExportTxt = CreateActionButton("TXT Olarak Kaydet", new Point(336, 102), Color.FromArgb(37, 99, 235));
+            _btnExportTxt = CreateActionButton("TXT Kaydet", new Point(431, 102), new Size(145, 36), Color.FromArgb(37, 99, 235));
             _btnExportTxt.Click += BtnExportTxt_Click;
 
-            _btnExportCsv = CreateActionButton("CSV Olarak Kaydet", new Point(496, 102), Color.FromArgb(13, 148, 136));
+            _btnExportCsv = CreateActionButton("CSV Kaydet", new Point(586, 102), new Size(145, 36), Color.FromArgb(13, 148, 136));
             _btnExportCsv.Click += BtnExportCsv_Click;
 
             _topPanel.Controls.AddRange(new Control[]
             {
                 _lblStatusBadge, _lblLastKey, _lblStats, _txtTestArea,
-                _btnToggleRecord, _btnClear, _btnExportTxt, _btnExportCsv
+                _btnStart, _btnStop, _btnClear, _btnExportTxt, _btnExportCsv
             });
 
-            // Kayıt Tablosu (DataGridView)
-            _dgvLogs = new DataGridView
+            // Kayıt Listesi (ListBox)
+            _lstLogs = new ListBox
             {
                 Dock = DockStyle.Fill,
-                BackgroundColor = Color.White,
-                BorderStyle = BorderStyle.None,
-                AllowUserToAddRows = false,
-                AllowUserToDeleteRows = false,
-                ReadOnly = true,
-                RowHeadersVisible = false,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                EnableHeadersVisualStyles = false,
-                ColumnHeadersHeight = 36,
-                RowTemplate = { Height = 28 }
-            };
+                BackColor = Color.White,
+                ForeColor = Color.FromArgb(30, 41, 59),
+                BorderStyle = BorderStyle.FixedSingle,
+                Font = new Font("Consolas", 10F, FontStyle.Regular),
+                IntegralHeight = false,
+                HorizontalScrollbar = true
+            }; 
 
-            _dgvLogs.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(30, 41, 59);
-            _dgvLogs.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
-            _dgvLogs.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-
-            _dgvLogs.Columns.Add("Seq", "Sıra");
-            _dgvLogs.Columns.Add("Time", "Zaman Damgası");
-            _dgvLogs.Columns.Add("EventType", "Olay Türü");
-            _dgvLogs.Columns.Add("KeyName", "Tuş / Karakter");
-            _dgvLogs.Columns.Add("KeyCode", "KeyCode");
-            _dgvLogs.Columns.Add("KeyValue", "Sayısal Değer");
-            _dgvLogs.Columns.Add("Modifiers", "Değiştiriciler");
-
-            _dgvLogs.Columns["Seq"]!.FillWeight = 45;
-            _dgvLogs.Columns["Time"]!.FillWeight = 95;
-            _dgvLogs.Columns["EventType"]!.FillWeight = 75;
-            _dgvLogs.Columns["KeyName"]!.FillWeight = 90;
-            _dgvLogs.Columns["KeyCode"]!.FillWeight = 90;
-            _dgvLogs.Columns["KeyValue"]!.FillWeight = 75;
-            _dgvLogs.Columns["Modifiers"]!.FillWeight = 110;
-
-            // Kontrolleri Forma Ekle (Önce Fill olan tablo, sonra Top olan panel eklenir)
-            this.Controls.Add(_dgvLogs);
+            // Kontrolleri Forma Ekle (Önce Fill olan liste, sonra Top olan panel eklenir)
+            this.Controls.Add(_lstLogs);
             this.Controls.Add(_topPanel);
         }
 
-        private Button CreateActionButton(string text, Point location, Color backColor)
+        private Button CreateActionButton(string text, Point location, Size size, Color backColor)
         {
             return new Button
             {
                 Text = text,
                 Location = location,
-                Size = new Size(150, 36),
+                Size = size,
                 FlatStyle = FlatStyle.Flat,
                 BackColor = backColor,
                 ForeColor = Color.White,
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
                 Cursor = Cursors.Hand,
                 TabStop = false // Space/Enter basıldığında butonların yanlışlıkla tetiklenmesini önler
             };
@@ -192,7 +172,7 @@ namespace YMH219_KeyEventLogger
         {
             string modifiers = GetModifiersText(e.Modifiers);
             var entry = _logManager.AddEntry("KeyDown", e.KeyCode.ToString(), e.KeyCode.ToString(), e.KeyValue, modifiers);
-            if (entry != null) AddEntryToGrid(entry);
+            if (entry != null) AddEntryToList(entry);
         }
 
         private void Form1_KeyPress(object? sender, KeyPressEventArgs e)
@@ -210,39 +190,22 @@ namespace YMH219_KeyEventLogger
 
             string modifiers = GetModifiersText(Control.ModifierKeys);
             var entry = _logManager.AddEntry("KeyPress", charDisplay, "Char", (int)e.KeyChar, modifiers);
-            if (entry != null) AddEntryToGrid(entry);
+            if (entry != null) AddEntryToList(entry);
         }
 
         private void Form1_KeyUp(object? sender, KeyEventArgs e)
         {
             string modifiers = GetModifiersText(e.Modifiers);
             var entry = _logManager.AddEntry("KeyUp", e.KeyCode.ToString(), e.KeyCode.ToString(), e.KeyValue, modifiers);
-            if (entry != null) AddEntryToGrid(entry);
+            if (entry != null) AddEntryToList(entry);
         }
 
-        private void AddEntryToGrid(KeyLogEntry entry)
+        private void AddEntryToList(KeyLogEntry entry)
         {
-            // En son olay her zaman en üstte görünecek şekilde 0. indekse ekliyoruz
-            _dgvLogs.Rows.Insert(
-                0,
-                entry.SequenceNumber,
-                entry.Timestamp.ToString("HH:mm:ss.fff"),
-                entry.EventType,
-                entry.KeyName,
-                entry.KeyCode,
-                entry.KeyValue,
-                entry.Modifiers
-            );
+            string formattedLine = $"#{entry.SequenceNumber,-4} | {entry.Timestamp:HH:mm:ss.fff} | {entry.EventType,-8} | Tuş: {entry.KeyName,-12} | Kod: {entry.KeyValue,-4} | Değiştirici: {entry.Modifiers}";
 
-            // Olay türüne göre satır renklendirmesi
-            DataGridViewRow row = _dgvLogs.Rows[0];
-            row.DefaultCellStyle.BackColor = entry.EventType switch
-            {
-                "KeyDown" => Color.FromArgb(239, 246, 255),  // Açık Mavi
-                "KeyPress" => Color.FromArgb(240, 253, 244), // Açık Yeşil
-                "KeyUp" => Color.FromArgb(255, 247, 237),    // Açık Turuncu
-                _ => Color.White
-            };
+            // En son olay her zaman en üstte görünecek şekilde 0. indekse ekliyoruz
+            _lstLogs.Items.Insert(0, formattedLine);
 
             _lblLastKey.Text = $"Son Olay: {entry.EventType} → {entry.KeyName} (Değer: {entry.KeyValue}, Değiştirici: {entry.Modifiers})";
             UpdateStatsLabel();
@@ -253,30 +216,40 @@ namespace YMH219_KeyEventLogger
             _lblStats.Text = $"Toplam: {_logManager.TotalCount}  |  KeyDown: {_logManager.KeyDownCount}  |  KeyPress: {_logManager.KeyPressCount}  |  KeyUp: {_logManager.KeyUpCount}";
         }
 
-        private void BtnToggleRecord_Click(object? sender, EventArgs e)
+        private void UpdateRecordingStateUI()
         {
-            _logManager.IsRecording = !_logManager.IsRecording;
-
             if (_logManager.IsRecording)
             {
                 _lblStatusBadge.Text = "● KAYIT AKTİF (Yalnızca Bu Pencere Odaktayken İzlenir)";
                 _lblStatusBadge.ForeColor = Color.FromArgb(22, 163, 74);
-                _btnToggleRecord.Text = "Kaydı Duraklat";
-                _btnToggleRecord.BackColor = Color.FromArgb(234, 88, 12);
+                _btnStart.Enabled = false;
+                _btnStop.Enabled = true;
             }
             else
             {
-                _lblStatusBadge.Text = "❚❚ KAYIT DURAKLATILDI";
+                _lblStatusBadge.Text = "■ KAYIT DURDURULDU";
                 _lblStatusBadge.ForeColor = Color.FromArgb(220, 38, 38);
-                _btnToggleRecord.Text = "Kaydı Başlat";
-                _btnToggleRecord.BackColor = Color.FromArgb(22, 163, 74);
+                _btnStart.Enabled = true;
+                _btnStop.Enabled = false;
             }
+        }
+
+        private void BtnStart_Click(object? sender, EventArgs e)
+        {
+            _logManager.IsRecording = true;
+            UpdateRecordingStateUI();
+        }
+
+        private void BtnStop_Click(object? sender, EventArgs e)
+        {
+            _logManager.IsRecording = false;
+            UpdateRecordingStateUI();
         }
 
         private void BtnClear_Click(object? sender, EventArgs e)
         {
             _logManager.Clear();
-            _dgvLogs.Rows.Clear();
+            _lstLogs.Items.Clear();
             _lblLastKey.Text = "Son Olay: Geçmiş temizlendi";
             UpdateStatsLabel();
         }
